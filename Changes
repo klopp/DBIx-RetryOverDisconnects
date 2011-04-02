@@ -1,5 +1,8 @@
 Revision history for Perl extension DBIx::RetryOverDisconnects.
 
+0.06  Sat Apr  2 18:01:00 MSD 2011
+        - throw full stack traces on errors
+
 0.05  Jul 31 2009
         - bug fix with unlimited Retries (thanks to cpan@djsf.com)
 

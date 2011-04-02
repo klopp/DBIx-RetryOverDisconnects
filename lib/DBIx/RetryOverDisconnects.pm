@@ -3,9 +3,10 @@ use base 'DBI';
 use strict;
 use 5.006;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 our ($errstr, $err);
-use Exception::Class;
+use Exception::Class qw(DBIx::RetryOverDisconnects::Exception);
+DBIx::RetryOverDisconnects::Exception->Trace(1);
 use constant PRIV => 'private_DBIx-RetryOverDisconnects_data';
 
 =head1 NAME
@@ -160,7 +161,7 @@ sub connect {
     $attrs->{RaiseError} = 1;
     my $self = $this->SUPER::connect($dsn, $user, $pass, $attrs);
     my $driver = $self->{Driver}{Name};
-    Exception::Class::Base->new("Sorry, driver '$driver' is not yet supported\n")->throw
+    DBIx::RetryOverDisconnects::Exception->new("Sorry, driver '$driver' is not yet supported\n")->throw
         unless DBIx::RetryOverDisconnects::db->can('is_disconnect_'.lc($driver));
     $self_attrs->{AutoCommit} = $self->{AutoCommit};
     $self->{PRIV()} = $self_attrs;
@@ -216,7 +217,7 @@ sub exc_conn_trans {
     my $msg = 'Connection to database lost while in transaction';
     $DBIx::RetryOverDisconnects::errstr = $msg;
     $DBIx::RetryOverDisconnects::err    = 3;
-    Exception::Class::Base->new($msg);
+    DBIx::RetryOverDisconnects::Exception->new($msg);
 }
 
 sub exc_conn_trans_fatal {
@@ -224,7 +225,7 @@ sub exc_conn_trans_fatal {
     my $msg = 'Connection to database lost while in transaction (retries exceeded)';
     $DBIx::RetryOverDisconnects::errstr = $msg;
     $DBIx::RetryOverDisconnects::err    = 4;
-    Exception::Class::Base->new($msg);
+    DBIx::RetryOverDisconnects::Exception->new($msg);
 }
 
 =head2 is_fatal_trans_disconnect
@@ -268,7 +269,7 @@ sub exc_conn_fatal {
     my $msg = 'Connection to database lost (retries exceeded)';
     $DBIx::RetryOverDisconnects::errstr = $msg;
     $DBIx::RetryOverDisconnects::err    = 2;
-    Exception::Class::Base->new($msg);
+    DBIx::RetryOverDisconnects::Exception->new($msg);
 }
 
 sub exc_flush {
@@ -314,7 +315,7 @@ foreach my $func (qw/
 
             last if $ok;
 
-            my $e = Exception::Class::Base->new( $DBI::errstr or $@ );
+            my $e = DBIx::RetryOverDisconnects::Exception->new( $DBI::errstr or $@ );
             return unless $self->take_measures($e, undef, $autocommit);
         }
 
@@ -458,7 +459,7 @@ are subject to die (database completely down, network down, bussiness logic erro
 sub txn_do {
     my ($self, $coderef) = (shift, shift);
 
-    Exception::Class::Base->new('$coderef must be a CODE reference')->throw
+    DBIx::RetryOverDisconnects::Exception->new('$coderef must be a CODE reference')->throw
         unless ref $coderef eq 'CODE';
 
     return $coderef->(@_) unless $self->{AutoCommit};
@@ -482,7 +483,7 @@ sub txn_do {
         my $txn_err = $@;
         my $rollback_ok = eval {$self->rollback; 1};
         $txn_err .= $rollback_ok ? ' (Rollback OK)' : "(Rollback failed: $@)";
-        Exception::Class::Base->new($txn_err)->throw;
+        DBIx::RetryOverDisconnects::Exception->new($txn_err)->throw;
     }
 
     return $wa ? @result : $result;
@@ -521,7 +522,7 @@ foreach my $func (qw/execute execute_array execute_for_fetch/) {
 
             last if $ok;
 
-            my $e = Exception::Class::Base->new( $DBI::errstr or $@ );
+            my $e = DBIx::RetryOverDisconnects::Exception->new( $DBI::errstr or $@ );
             return unless $dbh->take_measures($e, $self, $autocommit);
         }
         return $wa ? @retval : $retval;
