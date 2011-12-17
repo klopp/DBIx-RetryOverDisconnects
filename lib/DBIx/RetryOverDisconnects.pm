@@ -3,7 +3,7 @@ use base 'DBI';
 use strict;
 use 5.006;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 our ($errstr, $err);
 use Exception::Class qw(DBIx::RetryOverDisconnects::Exception);
 DBIx::RetryOverDisconnects::Exception->Trace(1);
@@ -280,7 +280,7 @@ sub exc_flush {
 
 sub exc_std {
     my ($self, $e) = @_;
-    $DBIx::RetryOverDisconnects::errstr = 'standart DBI error';
+    $DBIx::RetryOverDisconnects::errstr = 'standard DBI error';
     $DBIx::RetryOverDisconnects::err    = 1;
     $e;
 }
@@ -376,7 +376,11 @@ sub is_disconnect_sqlite {} #SQLite has no connection problems. Isn't that right
 *is_disconnect_sqlite2 = *is_disconnect_sqlite;
 
 sub is_disconnect_oracle {
-    #?
+    my $self = shift;
+    local $_ = shift;
+    return 1 if /ORA-03135/ or # "connection lost contact"
+                /ORA-03113/;   # "end-of-file on communication channel"
+    return;
 }
 
 sub is_disconnect_sybase {
@@ -561,8 +565,7 @@ execute, execute_array, execute_for_fetch
 
 =head1 DATABASE SUPPORT
 
-Currently PostgreSQL, MySQL and SQLite are supported. In the nearest future
-DB2, MSSQL, Oracle and Sybase will be supported.
+Currently PostgreSQL, MySQL, Oracle and SQLite are supported.
 
 =head1 SEE ALSO
 
