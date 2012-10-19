@@ -3,7 +3,7 @@ use base 'DBI';
 use strict;
 use 5.006;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 our ($errstr, $err);
 use Exception::Class qw(DBIx::RetryOverDisconnects::Exception);
 DBIx::RetryOverDisconnects::Exception->Trace(1);
