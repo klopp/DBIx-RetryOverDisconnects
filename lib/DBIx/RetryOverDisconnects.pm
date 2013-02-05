@@ -3,7 +3,7 @@ use base 'DBI';
 use strict;
 use 5.006;
 
-our $VERSION = '0.08';
+our $VERSION = '0.10';
 our ($errstr, $err);
 use Exception::Class qw(DBIx::RetryOverDisconnects::Exception);
 DBIx::RetryOverDisconnects::Exception->Trace(1);
@@ -305,6 +305,7 @@ foreach my $func (qw/
         while(1) {
 
             $data->{Intercept} = 1;
+            local $@;
             my $ok = eval {
                 defined $wa ? $wa ? (@retval = $self->$super_method(@_)) :
                                     ($retval = $self->$super_method(@_)) :
@@ -367,7 +368,11 @@ sub is_disconnect_pg {
     my $self = shift;
     local $_ = shift;
     return 1 if /server\s+closed\s+the\s+connection\s+unexpectedly/i or
-                /terminating connection/;
+                /terminating connection/ or
+                /no\s+more\s+connections\s+allowed/ or # pgbouncer
+                /no\s+working\s+server\s+connection/ or # pgbouncer 1.4.2
+                /_timeout/ or # pgbouncer
+                /pgbouncer\s+cannot\s+connect\s+to\s+server/; # pgbouncer 1.5+
     return;
 }
 *is_disconnect_pgpp = *is_disconnect_pg;
@@ -403,6 +408,7 @@ sub reconnect {
             alarm(0);
             die($alarm = 1);
         };
+        local $@;
         eval {
             alarm($data->{timeout});
             eval {
@@ -471,6 +477,7 @@ sub txn_do {
     my $wa = wantarray;
     my (@result, $result, $i);
     while ('preved') {
+        local $@;
         my $ok = eval {
             $self->begin_work;
             defined $wa ? $wa ? (@result = $coderef->(@_)) :
@@ -516,6 +523,7 @@ foreach my $func (qw/execute execute_array execute_for_fetch/) {
         while(1) {
 
             $data->{Intercept} = 1;
+            local $@;
             my $ok = eval {
                 defined $wa ? $wa ? (@retval = $self->$super_method(@_)) :
                                     ($retval = $self->$super_method(@_)) :
