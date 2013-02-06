@@ -3,7 +3,7 @@ use base 'DBI';
 use strict;
 use 5.006;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 our ($errstr, $err);
 use Exception::Class qw(DBIx::RetryOverDisconnects::Exception);
 DBIx::RetryOverDisconnects::Exception->Trace(1);
@@ -189,8 +189,11 @@ use constant PRIV => DBIx::RetryOverDisconnects::PRIV();
 sub clone {
     my $self = shift;
     local $^W = 0;
+    my $data =  $self->{PRIV()};
+    $data->{is_cloning} = 1;
     my $new_self = $self->SUPER::clone(@_) or return;
-    $new_self->{PRIV()} = { %{ $self->{PRIV()} } };
+    delete $data->{is_cloning};
+    $new_self->{PRIV()} = {%$data};
     return $new_self;
 }
 
@@ -334,6 +337,7 @@ ping and if it is false then it reconnects.
 sub ping {
     my $self = shift;
     return 1 if $self->SUPER::ping;
+    return if $self->{PRIV()}{is_cloning};
     my $in_trans = !$self->{AutoCommit};
     $self->reconnect;
     $self->exc_conn_trans->throw if $in_trans;
@@ -343,7 +347,8 @@ sub ping {
 sub take_measures {
     my ($self, $e, $sth, $autocommit) = @_;
     $self->exc_flush;
-    $self->SUPER::ping and $self->exc_std($e)->rethrow;
+    local $@;
+    $self->exc_std($e)->rethrow if eval { $self->SUPER::ping };
 
     my $is_disconnect_method = 'is_disconnect_'.lc($self->{Driver}->{Name});
     if ($self->$is_disconnect_method($e)) {

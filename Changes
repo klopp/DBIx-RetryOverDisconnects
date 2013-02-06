@@ -1,5 +1,9 @@
 Revision history for Perl extension DBIx::RetryOverDisconnects.
 
+0.11  05.02.2013
+        - [rt.cpan.org #83138] take_measures - SUPER::ping throws an exception, Laurent Dami
+        - [rt.cpan.org #83139] infinite ping() loop under connect_cached, Laurent Dami
+
 0.10  05.02.2013
         - [rt.cpan.org #83140] no localization of @_, 10x Laurent Dami
 
