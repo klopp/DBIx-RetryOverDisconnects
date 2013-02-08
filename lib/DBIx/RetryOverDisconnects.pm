@@ -3,7 +3,7 @@ use base 'DBI';
 use strict;
 use 5.006;
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 our ($errstr, $err);
 use Exception::Class qw(DBIx::RetryOverDisconnects::Exception);
 DBIx::RetryOverDisconnects::Exception->Trace(1);
@@ -480,7 +480,8 @@ sub txn_do {
     return $coderef->(@_) unless $self->{AutoCommit};
 
     my $wa = wantarray;
-    my (@result, $result, $i);
+    my (@result, $result);
+    my $i = 0;
     while ('preved') {
         local $@;
         my $ok = eval {
@@ -493,7 +494,7 @@ sub txn_do {
         };
         last if $ok;
 
-        $self->exc_conn_trans_fatal->throw if $self->{PRIV()}{txn_retries} <= ++$i;
+        $self->exc_conn_trans_fatal->throw if $self->{PRIV()}{txn_retries} <= $i++;
         next if $self->is_trans_disconnect;
         $@->rethrow if $self->is_fatal_disconnect;
         my $txn_err = $@;
