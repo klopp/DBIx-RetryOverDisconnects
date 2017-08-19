@@ -291,7 +291,9 @@ sub exc_std {
 foreach my $func (qw/
     prepare do statistics_info begin_work commit rollback
     selectrow_array selectrow_arrayref selectall_arrayref
-    selectall_hashref
+    selectall_hashref selectrow_hashref selectall_hashref
+    selectcol_arrayref
+    
 /)
 {
     no strict 'refs';
