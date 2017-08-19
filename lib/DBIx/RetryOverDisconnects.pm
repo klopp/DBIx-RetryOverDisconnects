@@ -4,7 +4,7 @@ use strict;
 use 5.006;
 
 our $VERSION = '0.12';
-our ($errstr, $err);
+our ( $errstr, $err );
 use Exception::Class qw(DBIx::RetryOverDisconnects::Exception);
 DBIx::RetryOverDisconnects::Exception->Trace(1);
 use constant PRIV => 'private_DBIx-RetryOverDisconnects_data';
@@ -154,31 +154,33 @@ failed because of database connection problems. Default to 4.
 
 =cut
 
-sub connect {
-    my ($this, $dsn, $user, $pass, $attrs) = @_;
+sub connect
+{
+    my ( $this, $dsn, $user, $pass, $attrs ) = @_;
 
     my $self_attrs = $this->get_self_attrs($attrs);
     $attrs->{RaiseError} = 1;
-    my $self = $this->SUPER::connect($dsn, $user, $pass, $attrs);
+    my $self = $this->SUPER::connect( $dsn, $user, $pass, $attrs );
     my $driver = $self->{Driver}{Name};
-    DBIx::RetryOverDisconnects::Exception->new("Sorry, driver '$driver' is not yet supported\n")->throw
-        unless DBIx::RetryOverDisconnects::db->can('is_disconnect_'.lc($driver));
+    DBIx::RetryOverDisconnects::Exception->new("Sorry, driver '$driver' is not yet supported\n")
+        ->throw
+        unless DBIx::RetryOverDisconnects::db->can( 'is_disconnect_' . lc($driver) );
     $self_attrs->{AutoCommit} = $self->{AutoCommit};
-    $self->{PRIV()} = $self_attrs;
+    $self->{ PRIV() } = $self_attrs;
 
     return $self;
 }
 
-sub get_self_attrs {
-    my ($this, $attrs) = @_;
+sub get_self_attrs
+{
+    my ( $this, $attrs ) = @_;
     return {
-        retries     => exists $attrs->{ReconnectRetries} ? (delete $attrs->{ReconnectRetries}) : 5,
-        interval    => (delete $attrs->{ReconnectInterval}) || 1,
-        timeout     => (delete $attrs->{ReconnectTimeout}) || 5,
-        txn_retries => (delete $attrs->{TxnRetries}) || 4,
+        retries => exists $attrs->{ReconnectRetries} ? ( delete $attrs->{ReconnectRetries} ) : 5,
+        interval    => ( delete $attrs->{ReconnectInterval} ) || 1,
+        timeout     => ( delete $attrs->{ReconnectTimeout} )  || 5,
+        txn_retries => ( delete $attrs->{TxnRetries} )        || 4,
     };
 }
-
 
 package DBIx::RetryOverDisconnects::db;
 use base 'DBI::db';
@@ -186,14 +188,15 @@ use strict;
 
 use constant PRIV => DBIx::RetryOverDisconnects::PRIV();
 
-sub clone {
+sub clone
+{
     my $self = shift;
     local $^W = 0;
-    my $data =  $self->{PRIV()};
+    my $data = $self->{ PRIV() };
     $data->{is_cloning} = 1;
     my $new_self = $self->SUPER::clone(@_) or return;
     delete $data->{is_cloning};
-    $new_self->{PRIV()} = {%$data};
+    $new_self->{ PRIV() } = {%$data};
     return $new_self;
 }
 
@@ -208,24 +211,27 @@ It is called after every successful reconnect to database.
 
 =cut
 
-sub set_callback {
-    my ($self, %callbacks) = @_;
-    my $old = $self->{PRIV()}->{callback} || {};
-    $self->{PRIV()}->{callback} = {%$old, %callbacks};
+sub set_callback
+{
+    my ( $self, %callbacks ) = @_;
+    my $old = $self->{ PRIV() }->{callback} || {};
+    $self->{ PRIV() }->{callback} = { %$old, %callbacks };
     return;
 }
 
-sub exc_conn_trans {
+sub exc_conn_trans
+{
     my $self = shift;
-    my $msg = 'Connection to database lost while in transaction';
+    my $msg  = 'Connection to database lost while in transaction';
     $DBIx::RetryOverDisconnects::errstr = $msg;
     $DBIx::RetryOverDisconnects::err    = 3;
     DBIx::RetryOverDisconnects::Exception->new($msg);
 }
 
-sub exc_conn_trans_fatal {
+sub exc_conn_trans_fatal
+{
     my $self = shift;
-    my $msg = 'Connection to database lost while in transaction (retries exceeded)';
+    my $msg  = 'Connection to database lost while in transaction (retries exceeded)';
     $DBIx::RetryOverDisconnects::errstr = $msg;
     $DBIx::RetryOverDisconnects::err    = 4;
     DBIx::RetryOverDisconnects::Exception->new($msg);
@@ -238,7 +244,7 @@ was reached.
 
 =cut
 
-sub is_fatal_trans_disconnect {$DBIx::RetryOverDisconnects::err == 4}
+sub is_fatal_trans_disconnect { $DBIx::RetryOverDisconnects::err == 4 }
 
 =head2 is_trans_disconnect
 
@@ -247,7 +253,7 @@ The database handle was successfuly reconnected again.
 
 =cut
 
-sub is_trans_disconnect       {$DBIx::RetryOverDisconnects::err == 3}
+sub is_trans_disconnect { $DBIx::RetryOverDisconnects::err == 3 }
 
 =head2 is_fatal_disconnect
 
@@ -256,7 +262,7 @@ database handle is not connected.
 
 =cut
 
-sub is_fatal_disconnect       {$DBIx::RetryOverDisconnects::err == 2}
+sub is_fatal_disconnect { $DBIx::RetryOverDisconnects::err == 2 }
 
 =head2 is_sql_error
 
@@ -265,56 +271,63 @@ database connection problems. See $DBI::errstr for details.
 
 =cut
 
-sub is_sql_error              {$DBIx::RetryOverDisconnects::err == 1}
+sub is_sql_error { $DBIx::RetryOverDisconnects::err == 1 }
 
-sub exc_conn_fatal {
+sub exc_conn_fatal
+{
     my $self = shift;
-    my $msg = 'Connection to database lost (retries exceeded)';
+    my $msg  = 'Connection to database lost (retries exceeded)';
     $DBIx::RetryOverDisconnects::errstr = $msg;
     $DBIx::RetryOverDisconnects::err    = 2;
     DBIx::RetryOverDisconnects::Exception->new($msg);
 }
 
-sub exc_flush {
+sub exc_flush
+{
     my $self = shift;
     $DBIx::RetryOverDisconnects::errstr = undef;
     $DBIx::RetryOverDisconnects::err    = undef;
 }
 
-sub exc_std {
-    my ($self, $e) = @_;
+sub exc_std
+{
+    my ( $self, $e ) = @_;
     $DBIx::RetryOverDisconnects::errstr = 'standard DBI error';
     $DBIx::RetryOverDisconnects::err    = 1;
     $e;
 }
 
-foreach my $func (qw/
+foreach my $func (
+    qw/
     prepare do statistics_info begin_work commit rollback
     selectrow_array selectrow_arrayref selectall_arrayref
     selectall_hashref selectrow_hashref selectall_hashref
     selectcol_arrayref
-    
-/)
+
+    /
+    )
 {
     no strict 'refs';
     *$func = sub {
-        my $self = shift;
+        my $self         = shift;
         my $super_method = "SUPER::$func";
-        my $data = $self->{PRIV()};
-        return $self->$super_method(@_) if $data->{Intercept}; #Already protected
+        my $data         = $self->{ PRIV() };
+        return $self->$super_method(@_) if $data->{Intercept};    #Already protected
 
-        my ($retval, @retval);
-        my $wa = wantarray;
+        my ( $retval, @retval );
+        my $wa         = wantarray;
         my $autocommit = $self->{AutoCommit};
 
-        while(1) {
+        while (1) {
 
             $data->{Intercept} = 1;
             local $@;
             my $ok = eval {
-                defined $wa ? $wa ? (@retval = $self->$super_method(@_)) :
-                                    ($retval = $self->$super_method(@_)) :
-                                    $self->$super_method(@_);
+                      defined $wa
+                    ? $wa
+                        ? ( @retval = $self->$super_method(@_) )
+                        : ( $retval = $self->$super_method(@_) )
+                    : $self->$super_method(@_);
                 1;
             };
             $data->{Intercept} = 0;
@@ -322,7 +335,7 @@ foreach my $func (qw/
             last if $ok;
 
             my $e = DBIx::RetryOverDisconnects::Exception->new( $DBI::errstr or $@ );
-            return unless $self->take_measures($e, undef, $autocommit);
+            return unless $self->take_measures( $e, undef, $autocommit );
         }
 
         return $wa ? @retval : $retval;
@@ -336,24 +349,26 @@ ping and if it is false then it reconnects.
 
 =cut
 
-sub ping {
+sub ping
+{
     my $self = shift;
     return 1 if $self->SUPER::ping;
-    return if $self->{PRIV()}{is_cloning};
+    return   if $self->{ PRIV() }{is_cloning};
     my $in_trans = !$self->{AutoCommit};
     $self->reconnect;
     $self->exc_conn_trans->throw if $in_trans;
     return 1;
 }
 
-sub take_measures {
-    my ($self, $e, $sth, $autocommit) = @_;
+sub take_measures
+{
+    my ( $self, $e, $sth, $autocommit ) = @_;
     $self->exc_flush;
     local $@;
     $self->exc_std($e)->rethrow if eval { $self->SUPER::ping };
 
-    my $is_disconnect_method = 'is_disconnect_'.lc($self->{Driver}->{Name});
-    if ($self->$is_disconnect_method($e)) {
+    my $is_disconnect_method = 'is_disconnect_' . lc( $self->{Driver}->{Name} );
+    if ( $self->$is_disconnect_method($e) ) {
         warn "Disconnected!\n" if $self->{PrintError};
         return unless $self->reconnect($sth);
         $self->exc_conn_trans->throw unless $autocommit;
@@ -363,61 +378,72 @@ sub take_measures {
     $self->exc_std($e)->rethrow;
 }
 
-sub is_disconnect_mysql {
+sub is_disconnect_mysql
+{
     my $self = shift;
     local $_ = shift;
-    return 1 if /lost\s+connection/i or /can't\s+connect/i or
-                /server\s+shutdown/i or /MySQL\s+server\s+has\s+gone\s+away/i;
+    return 1
+        if /lost\s+connection/i
+        or /can't\s+connect/i
+        or /server\s+shutdown/i
+        or /MySQL\s+server\s+has\s+gone\s+away/i;
     return;
 }
 
-sub is_disconnect_pg {
+sub is_disconnect_pg
+{
     my $self = shift;
     local $_ = shift;
-    return 1 if /server\s+closed\s+the\s+connection\s+unexpectedly/i or
-                /terminating connection/ or
-                /no\s+more\s+connections\s+allowed/ or # pgbouncer
-                /no\s+working\s+server\s+connection/ or # pgbouncer 1.4.2
-                /_timeout/ or # pgbouncer
-                /pgbouncer\s+cannot\s+connect\s+to\s+server/; # pgbouncer 1.5+
+    return 1
+        if /server\s+closed\s+the\s+connection\s+unexpectedly/i
+        or /terminating connection/
+        or /no\s+more\s+connections\s+allowed/
+        or    # pgbouncer
+        /no\s+working\s+server\s+connection/ or    # pgbouncer 1.4.2
+        /_timeout/                           or    # pgbouncer
+        /pgbouncer\s+cannot\s+connect\s+to\s+server/;    # pgbouncer 1.5+
     return;
 }
 *is_disconnect_pgpp = *is_disconnect_pg;
 
-sub is_disconnect_sqlite {} #SQLite has no connection problems. Isn't that right?
+sub is_disconnect_sqlite { }    #SQLite has no connection problems. Isn't that right?
 *is_disconnect_sqlite2 = *is_disconnect_sqlite;
 
-sub is_disconnect_oracle {
+sub is_disconnect_oracle
+{
     my $self = shift;
     local $_ = shift;
-    return 1 if /ORA-03135/ or # "connection lost contact"
-                /ORA-03113/;   # "end-of-file on communication channel"
+    return 1 if /ORA-03135/ or    # "connection lost contact"
+        /ORA-03113/;              # "end-of-file on communication channel"
     return;
 }
 
-sub is_disconnect_sybase {
+sub is_disconnect_sybase
+{
     #?
 }
 
-sub is_disconnect_db2 {
+sub is_disconnect_db2
+{
     #?
 }
 
-sub reconnect {
-    my ($self, $sth) = @_;
-    my $data = $self->{PRIV()};
+sub reconnect
+{
+    my ( $self, $sth ) = @_;
+    my $data = $self->{ PRIV() };
     my $new_dbh;
 
-    for (my $i = 1; (!$data->{retries} || $i <= $data->{retries}); $i++) {
+    for ( my $i = 1; ( !$data->{retries} || $i <= $data->{retries} ); $i++ ) {
         warn "Reconnect try #$i\n" if $self->{PrintError};
         my $alarm;
         local $SIG{ALRM} = sub {
             alarm(0);
-            die($alarm = 1);
+            die( $alarm = 1 );
         };
         local $@;
         eval {
-            alarm($data->{timeout});
+            alarm( $data->{timeout} );
             eval {
                 local $^W = 0;
                 $new_dbh = $self->clone;
@@ -431,29 +457,30 @@ sub reconnect {
         sleep $data->{interval};
     }
 
-    ($self->disconnect, $self->exc_conn_fatal->throw) unless $new_dbh;
+    ( $self->disconnect, $self->exc_conn_fatal->throw ) unless $new_dbh;
 
     $self->swap_inner_handle($new_dbh);
-    $self->{PRIV()}    = $data;
-    $new_dbh->{PRIV()} = undef;
-    $new_dbh->STORE('Active', 0);
+    $self->{ PRIV() }    = $data;
+    $new_dbh->{ PRIV() } = undef;
+    $new_dbh->STORE( 'Active', 0 );
 
-    $self->STORE('CachedKids', {});
+    $self->STORE( 'CachedKids', {} );
     if ($sth) {
-        my $new_sth = $self->prepare_cached($sth->{Statement});
-        $sth->swap_inner_handle($new_sth, 1);
+        my $new_sth = $self->prepare_cached( $sth->{Statement} );
+        $sth->swap_inner_handle( $new_sth, 1 );
         $sth->restore_params($new_sth);
         $new_sth->finish;
     }
-    $self->STORE('CachedKids', {});
+    $self->STORE( 'CachedKids', {} );
 
     #Now autocommit is broken (has been copied from disconnected handle)
-    $self->{AutoCommit} = $data->{AutoCommit}; #Set initial value
+    $self->{AutoCommit} = $data->{AutoCommit};    #Set initial value
     $new_dbh->disconnect;
 
     #Call callback. Currently only one supported.
-    if($self->{PRIV()}{callback} && (my $code = $self->{PRIV()}{callback}{afterReconnect})) {
-        $code->($self, $sth) if ref $code eq 'CODE';
+    if ( $self->{ PRIV() }{callback} && ( my $code = $self->{ PRIV() }{callback}{afterReconnect} ) )
+    {
+        $code->( $self, $sth ) if ref $code eq 'CODE';
     }
 
     return 1;
@@ -473,8 +500,9 @@ are subject to die (database completely down, network down, bussiness logic erro
 
 =cut
 
-sub txn_do {
-    my ($self, $coderef) = (shift, shift);
+sub txn_do
+{
+    my ( $self, $coderef ) = ( shift, shift );
 
     DBIx::RetryOverDisconnects::Exception->new('$coderef must be a CODE reference')->throw
         unless ref $coderef eq 'CODE';
@@ -482,32 +510,33 @@ sub txn_do {
     return $coderef->(@_) unless $self->{AutoCommit};
 
     my $wa = wantarray;
-    my (@result, $result);
+    my ( @result, $result );
     my $i = 0;
     while ('preved') {
         local $@;
         my $ok = eval {
             $self->begin_work;
-            defined $wa ? $wa ? (@result = $coderef->(@_)) :
-                                ($result = $coderef->(@_)) :
-                                $coderef->(@_);
+            defined $wa
+                ? $wa
+                    ? ( @result = $coderef->(@_) )
+                    : ( $result = $coderef->(@_) )
+                : $coderef->(@_);
             $self->commit;
             1;
         };
         last if $ok;
 
-        $self->exc_conn_trans_fatal->throw if $self->{PRIV()}{txn_retries} <= $i++;
-        next if $self->is_trans_disconnect;
-        $@->rethrow if $self->is_fatal_disconnect;
+        $self->exc_conn_trans_fatal->throw if $self->{ PRIV() }{txn_retries} <= $i++;
+        next                               if $self->is_trans_disconnect;
+        $@->rethrow                        if $self->is_fatal_disconnect;
         my $txn_err = $@;
-        my $rollback_ok = eval {$self->rollback; 1};
+        my $rollback_ok = eval { $self->rollback; 1 };
         $txn_err .= $rollback_ok ? ' (Rollback OK)' : "(Rollback failed: $@)";
         DBIx::RetryOverDisconnects::Exception->new($txn_err)->throw;
     }
 
     return $wa ? @result : $result;
 }
-
 
 package DBIx::RetryOverDisconnects::st;
 use base 'DBI::st';
@@ -518,24 +547,26 @@ use constant PRIV => DBIx::RetryOverDisconnects::PRIV();
 foreach my $func (qw/execute execute_array execute_for_fetch/) {
     no strict 'refs';
     *$func = sub {
-        my $self = shift;
+        my $self         = shift;
         my $super_method = "SUPER::$func";
-        my $dbh = $self->{Database};
-        my $data = $dbh->{PRIV()};
-        return $self->$super_method(@_) if $data->{Intercept}; #Already protected
+        my $dbh          = $self->{Database};
+        my $data         = $dbh->{ PRIV() };
+        return $self->$super_method(@_) if $data->{Intercept};    #Already protected
 
-        my ($retval, @retval);
-        my $wa = wantarray;
+        my ( $retval, @retval );
+        my $wa         = wantarray;
         my $autocommit = $dbh->{AutoCommit};
 
-        while(1) {
+        while (1) {
 
             $data->{Intercept} = 1;
             local $@;
             my $ok = eval {
-                defined $wa ? $wa ? (@retval = $self->$super_method(@_)) :
-                                    ($retval = $self->$super_method(@_)) :
-                                    $self->$super_method(@_);
+                      defined $wa
+                    ? $wa
+                        ? ( @retval = $self->$super_method(@_) )
+                        : ( $retval = $self->$super_method(@_) )
+                    : $self->$super_method(@_);
                 1;
             };
             $data->{Intercept} = 0;
@@ -543,28 +574,36 @@ foreach my $func (qw/execute execute_array execute_for_fetch/) {
             last if $ok;
 
             my $e = DBIx::RetryOverDisconnects::Exception->new( $DBI::errstr or $@ );
-            return unless $dbh->take_measures($e, $self, $autocommit);
+            return unless $dbh->take_measures( $e, $self, $autocommit );
         }
         return $wa ? @retval : $retval;
     };
 }
 
-sub restore_params {
+sub restore_params
+{
     my $self = shift;
     my $from = shift;
-    
+
     my $types = $from->{ParamTypes} || {};
+
     #Restore possible ParamArrays
     my $param_arrays = $from->{ParamArrays} || {};
-    while (my($bind, $array) = each %$param_arrays) {
-        $self->bind_param_array($bind, $array, $types->{$bind} ? $types->{$bind} : ());
+    while ( my ( $bind, $array ) = each %$param_arrays ) {
+        $self->bind_param_array( $bind, $array, $types->{$bind} ? $types->{$bind} : () );
     }
 
     #Restore normal ph's values
     my $param_values = $from->{ParamValues} || {};
     my $i = 1;
-    foreach my $bind_name (sort {($a =~ /(\d+)/)[0] <=> ($b =~ /(\d+)/)[0]} keys %$param_values) {
-        $self->bind_param($i++, $param_values->{$bind_name}, $types->{$bind_name} ? $types->{$bind_name} : ());
+    foreach
+        my $bind_name ( sort { ( $a =~ /(\d+)/ )[0] <=> ( $b =~ /(\d+)/ )[0] } keys %$param_values )
+    {
+        $self->bind_param(
+            $i++,
+            $param_values->{$bind_name},
+            $types->{$bind_name} ? $types->{$bind_name} : ()
+        );
     }
 }
 
